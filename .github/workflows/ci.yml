@@ -50,3 +50,44 @@ jobs:
       - name: Push Docker image to ECR
         run: |
            docker push 102186470770.dkr.ecr.us-east-1.amazonaws.com/sabino-awslearn-cicd-lab:latest
+
+
+      - name: Deploy to EC2 via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-052a81bd8a3c7d65f \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=["aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 102186470770.dkr.ecr.us-east-1.amazonaws.com","docker pull 102186470770.dkr.ecr.us-east-1.amazonaws.com/sabino-awslearn-cicd-lab:latest","docker stop sabino-awslearn-cicd-lab || true","docker rm sabino-awslearn-cicd-lab || true","docker run -d --name sabino-awslearn-cicd-lab -p 8000:8000 102186470770.dkr.ecr.us-east-1.amazonaws.com/sabino-awslearn-cicd-lab:latest"]' \
+            --region us-east-1 \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id i-052a81bd8a3c7d65f \
+            --region us-east-1
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id i-052a81bd8a3c7d65f \
+            --region us-east-1 \
+            --query 'Status' \
+            --output text)
+
+          echo "Deploy status: $STATUS"
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id i-052a81bd8a3c7d65f \
+            --region us-east-1 \
+            --query 'StandardOutputContent' \
+            --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deploy failed!"
+            exit 1
+          fi
+
+          echo "Deploy completed successfully!"
