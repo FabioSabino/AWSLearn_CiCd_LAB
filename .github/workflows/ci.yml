@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
 permissions:
   id-token: write
   contents: read
@@ -27,9 +28,6 @@ jobs:
       - name: Run tests
         run: pytest
 
-      - name: Build Docker image
-        run: docker build -t myawslearn_cicd_lab_img .
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -39,3 +37,16 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+
+      - name: Build Docker image
+        run: |
+           docker build -t sabino-awslearn-cicd-lab .
+
+      - name: Tag Docker image
+        run: |
+           docker tag sabino-awslearn-cicd-lab:latest 102186470770.dkr.ecr.us-east-1.amazonaws.com/sabino-awslearn-cicd-lab:latest
+
+      - name: Push Docker image to ECR
+        run: |
+           docker push 102186470770.dkr.ecr.us-east-1.amazonaws.com/sabino-awslearn-cicd-lab:latest
